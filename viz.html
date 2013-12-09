@@ -1,0 +1,358 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <title>AI Showdown</title>
+    <script src='jquery.min.js'></script>
+    <script src='game_log.js'></script>
+    <script>
+      $(document).ready(function(){
+          var canvas = document.getElementById('canvas');
+          var ctx = canvas.getContext('2d');
+          var canvas2 = document.getElementById('canvas2');
+          var ctx2 = canvas2.getContext('2d');
+          var rgb;
+          var roundSpeed = 100;
+          var oneColor = "#ff0000";
+          var twoColor = "#0000ff";
+          var round = 0;
+          var savedImage;
+          
+          var baseBorderWidth = 1;
+          var borderColor = "rgb(255,255,255)";
+          
+          // Make the player border (which isn't drawn) larger
+          // than the plant border so that you can see when a
+          // player and a plant occupy the same square.
+          var playerBorderWidth = 1;
+          var plantBorderWidth = 1;   
+          var plantBorderColor = "rgb(70,180,70)"
+          
+          //var MAP_START_Y = 100;
+          var MAP_START_Y = 0;
+          var CANVAS_WIDTH = 500;
+          var CANVAS_HEIGHT = 500;
+          var NUM_ROUNDS = 1000;
+          var GRAPH_HEIGHT = 165;
+          var GRAPH1_START_Y = 0;
+          var GRAPH1_END_Y = GRAPH1_START_Y + GRAPH_HEIGHT;
+          var GRAPH2_START_Y = GRAPH1_END_Y + 2;
+          var GRAPH2_END_Y = GRAPH2_START_Y + GRAPH_HEIGHT;
+          var GRAPH3_START_Y = GRAPH2_END_Y + 2;
+          var GRAPH3_END_Y = GRAPH3_START_Y + GRAPH_HEIGHT;
+          
+          // Used for the turn line and text.
+          var graphMiscColor = "rgba(250,250,250, 1)";
+          
+          // P1 has various shades of blue
+          var p1Color1 = "rgb(0,0,255)"
+          var p1Color2 = "rgb(85,85,255)"
+          var p1Color3 = "rgb(170,170,255)"
+          
+          // P2 has various shades of red
+          var p2Color1 = "rgb(255,0,0)"
+          var p2Color2 = "rgb(255,85,85)"
+          var p2Color3 = "rgb(255,170,170)"
+
+          var bgColor = "rgb(120,70,35)"
+          
+          var startH = 114;
+          var endH = 23;
+          var startSat = 100;
+          var endSat = 21;
+          var startL = 15;
+          var endL = 40;
+
+          var paused = false;
+
+          var json = window.game;
+
+            var playGame = function(){
+
+              var ctx = ctx2
+              
+              round = 0;
+              NUM_ROUNDS = json.turns.length;
+
+              // Draw background
+              ctx.fillStyle=bgColor;
+              ctx.fillRect(0,MAP_START_Y,CANVAS_WIDTH,CANVAS_WIDTH);
+
+              // Draw spawn points
+              drawBase(ctx, p1Color1, json.p1_spawn[0], json.p1_spawn[1]);
+              drawBase(ctx, p2Color1, json.p2_spawn[0], json.p2_spawn[1]);
+
+              savedImage = ctx.getImageData(0, 0, CANVAS_HEIGHT, CANVAS_WIDTH*2);
+              
+              // Draw line graphs
+              ctx.fillStyle="rgb(0,0,0)";
+              ctx.fillRect(CANVAS_WIDTH, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+              for(var turn = 0; turn<json.turns.length; turn++){
+                  var total = 0;
+                  for(var p1 = 0; p1<json.turns[turn].p1g.length; p1++){
+                     total += parseInt(json.turns[turn].p1g[p1][2]);
+                  }
+                  var mark = (total*GRAPH_HEIGHT/json.max_guys);
+                  ctx.fillStyle=p1Color1;
+                  ctx.fillRect((turn/json.turns.length)*CANVAS_WIDTH + CANVAS_WIDTH, GRAPH1_END_Y-mark, 1, 1);
+
+                  total = 0;
+                  for(var p1 = 0; p1<json.turns[turn].p2g.length; p1++){
+                     total += parseInt(json.turns[turn].p2g[p1][2]);
+                  }
+                  mark = (total*GRAPH_HEIGHT/json.max_guys);
+                  ctx.fillStyle=p2Color1;
+                  ctx.fillRect((turn/json.turns.length)*CANVAS_WIDTH + CANVAS_WIDTH, GRAPH1_END_Y-mark, 1, 1);
+                  
+                  ctx.fillStyle=graphMiscColor;
+                  ctx.font="12px Arial";
+                  ctx.fillText("GUYS",CANVAS_WIDTH+2,GRAPH1_START_Y+10);                  
+                  ctx.fillRect(CANVAS_WIDTH, GRAPH1_END_Y + 1, CANVAS_WIDTH, 1);
+                  
+                  mark = (json.turns[turn].p1s*GRAPH_HEIGHT/json.max_seeds);
+                  ctx.fillStyle=p1Color2;
+                  ctx.fillRect((turn/json.turns.length)*CANVAS_WIDTH + CANVAS_WIDTH, GRAPH2_END_Y-mark, 1, 1);
+
+                  mark = (json.turns[turn].p2s*GRAPH_HEIGHT/json.max_seeds);
+                  ctx.fillStyle=p2Color2;
+                  ctx.fillRect((turn/json.turns.length)*CANVAS_WIDTH + CANVAS_WIDTH, GRAPH2_END_Y-mark, 1, 1);
+                  
+                  ctx.fillStyle=graphMiscColor;
+                  ctx.font="12px Arial";
+                  ctx.fillText("SEEDS",CANVAS_WIDTH+2,GRAPH2_START_Y+10); 
+                  ctx.fillRect(CANVAS_WIDTH, GRAPH2_END_Y + 1, CANVAS_WIDTH, 1);
+                  
+                  mark = (json.turns[turn].p1m*GRAPH_HEIGHT/json.max_gold);
+                  ctx.fillStyle=p1Color3;
+                  ctx.fillRect((turn/json.turns.length)*CANVAS_WIDTH + CANVAS_WIDTH, GRAPH3_END_Y-mark, 1, 1);
+
+                  mark = (json.turns[turn].p2m*GRAPH_HEIGHT/json.max_gold);
+                  ctx.fillStyle=p2Color3;
+                  ctx.fillRect((turn/json.turns.length)*CANVAS_WIDTH + CANVAS_WIDTH, GRAPH3_END_Y-mark, 1, 1);
+                  
+                  ctx.fillStyle=graphMiscColor;
+                  ctx.font="12px Arial";
+                  ctx.fillText("GOLD",CANVAS_WIDTH+2,GRAPH3_START_Y+10); 
+                  ctx.fillRect(CANVAS_WIDTH, GRAPH3_END_Y + 1, CANVAS_WIDTH, 1);
+
+              }
+              
+              playRound();
+           };
+
+           var drawBase = function(ctx, color, x, y){
+              ctx.fillStyle=borderColor;
+              ctx.fillRect(x*10,y*10+MAP_START_Y,10,10);
+              ctx.fillStyle=color;
+              ctx.fillRect(x*10+baseBorderWidth,y*10+baseBorderWidth+MAP_START_Y,10-(2*baseBorderWidth),10-(2*baseBorderWidth));
+            }
+
+           var drawPlayer = function(color, x, y){              
+              ctx.fillStyle=color;
+              ctx.fillRect(x*10+playerBorderWidth,y*10+playerBorderWidth+MAP_START_Y,10-(2*playerBorderWidth),10-(2*playerBorderWidth));
+
+           }
+           var drawTroops = function(troops, h){
+              var gold = 0;
+              var food = 0;
+
+              for(var guys = 0; guys<troops.length; guys++){
+                var startL = 83;
+                var endL = 12;
+                var l = Math.max(startL-troops[guys][2], endL);
+                var color = "hsla("+h+",100%,"+l+"%,1)";
+
+                drawPlayer(color, troops[guys][0], troops[guys][1]);
+              }
+           }
+           
+           var drawPlant = function(ctx, plantColor, playerColor, x, y){
+           /*
+              ctx.fillStyle=playerColor;
+              ctx.fillRect(x*10,y*10+MAP_START_Y,10,10);
+              ctx.fillStyle=plantColor;
+              ctx.fillRect(x*10+plantBorderWidth,y*10+plantBorderWidth+MAP_START_Y,10-(2*plantBorderWidth),10-(2*plantBorderWidth));
+             */
+              ctx.beginPath();
+              ctx.arc(x*10+5, y*10+MAP_START_Y+5, 5, 0, 2*Math.PI, false);
+              ctx.fillStyle = playerColor;
+              ctx.fill();
+              ctx.beginPath();
+              ctx.arc(x*10+5, y*10+MAP_START_Y+5, 4, 0, 2*Math.PI, false);
+              ctx.fillStyle = plantColor;
+              ctx.fill();
+           }
+           
+           var drawPlants = function(plants, h, playerColor){
+              for(var p = 0; p < plants.length; p++){
+                var startL = 85;
+                var endL = 25; 
+                var l = Math.max(startL-plants[p][2], endL);
+                var color = "hsla("+h+",100%,"+l+"%,1)";
+
+                drawPlant(ctx, color, playerColor, plants[p][0], plants[p][1]);
+              }
+           }         
+
+           var playRound = function(){
+              if(round>=NUM_ROUNDS){
+                playGame();
+                return;
+              }
+
+              //console.log("round %d", round);
+              ctx.drawImage( canvas2, 0, 0);
+
+              ctx.fillStyle=graphMiscColor;
+              ctx.fillRect((round/json.turns.length)*CANVAS_WIDTH + CANVAS_WIDTH, MAP_START_Y, 2, CANVAS_HEIGHT);
+
+              var turn = json.turns[round];              
+              
+              // Draw Plants
+              // Hue = 120 should be green
+              drawPlants(turn.p1p, 120, p1Color1);
+              drawPlants(turn.p2p, 120, p2Color1);
+              
+              // Draw Guys
+              drawTroops(turn.p1g, 237); // Blue
+              drawTroops(turn.p2g, 0); // Red
+
+              round++;
+
+              if(!paused){
+                setTimeout(playRound, roundSpeed);
+              }
+           };
+           playGame();
+
+           var runGame = function(){
+              json = eval("(" + $('textarea').text() + ")");
+              playGame();
+           }
+           $('#run').click(function(){
+              runGame();
+           });
+           var switchingArea = false;
+
+
+           $('canvas').bind('mousemove', function(e){
+                if(switchingArea){
+                  var rect = ctx.canvas.getBoundingClientRect();
+                  var x = e.clientX - rect.left;
+                  var y = e.clientY - rect.top;
+
+                  //console.log(x, y);
+                  if(y<MAP_START_Y){
+                    round = Math.max(0, Math.min(NUM_ROUNDS, parseInt((x/CANVAS_WIDTH)*NUM_ROUNDS)));
+                  }
+
+                  if(paused){
+                    playRound();
+                  }
+                }
+
+                return false;
+
+            });
+
+           $("#canvas").bind('mousedown', function(e){
+              var rect = ctx.canvas.getBoundingClientRect();
+              var x = e.clientX - rect.left;
+              var y = e.clientY - rect.top;
+
+              //console.log(x, y);
+              if(y<MAP_START_Y){
+                round = Math.max(0, Math.min(NUM_ROUNDS, parseInt((x/CANVAS_WIDTH)*NUM_ROUNDS)));
+              }
+              switchingArea = true;
+
+              if(paused){
+                playRound();
+              }
+
+           });
+           $("#canvas").bind('mouseup', function(e){
+              switchingArea = false;
+           });
+
+           $("#pause").bind('click', function(e){
+              if(paused){
+                paused = false;
+                setTimeout(playRound, roundSpeed)
+              }else{
+                paused = true;
+              }
+           });
+
+           $("#left").bind('click', function(e){
+              round-=2;
+              playRound();
+           });
+           $("#right").bind('click', function(e){
+              playRound();
+           });
+
+           $(window).bind('keydown', function(e){
+              if(!paused){
+                return;
+              }
+              e = e || window.event;
+
+              if (e.keyCode == '37') {
+                round-=2;
+              }
+              else if (e.keyCode == '39') {
+                  // right arrow
+              }
+              playRound();
+
+           });
+           
+           // Display player names and who won/lost.
+           $("#p1_name").html(json.p1_name);
+           $("#p2_name").html(json.p2_name);
+           if (json.winner == 1) {
+              $("#p1_outcome").html(" - WINNER");
+              $("#p2_outcome").html(" - LOSER");
+           } else if (json.winner == 2) {
+              $("#p1_outcome").html(" - LOSER");
+              $("#p2_outcome").html(" - WINNER");
+           } else {
+              $("#p1_outcome").html(" - TIED");
+              $("#p2_outcome").html(" - TIED");
+           }
+      });
+
+    </script>
+
+  </head>
+  <body style='overflow:scroll;'>
+    <main>
+      <h1>A.I. Programming Competition</h1>
+      <div>
+          <span style='color: rgb(0,0,255)'>Player 1: </span>
+          <span id='p1_name'></span>
+          <span id='p1_outcome'></span><br />
+          <span style='color: rgb(255,0,0)'>Player 2: </span>
+          <span id='p2_name'></span>
+          <span id='p2_outcome'></span><br />
+          <br />
+      </div>
+      <div class='content' style='width:1000px;'>
+        <canvas id='canvas' width='1000' height='500'></canvas>
+        <div>
+          <input id='pause' type='submit' value='&nbsp;&nbsp;&nbsp;&nbsp;||&nbsp;&nbsp;&nbsp;&nbsp;'/>
+          <input id='left' type='submit' value='<-'/>
+          <input id='right' type='submit' value='->'/>
+        </div>
+        <div>       
+          <br /><br />       
+          <span>Submit json below to run it instead:</span>
+        </div>
+        <br />
+        <textarea style='width:1000px; height:400px;' class='replace'></textarea>
+        <input id='run' type='submit' />
+        <canvas style='display:none;' id='canvas2' width='1000' height='500'></canvas>
+    </main>
+  </body>
+</html>
